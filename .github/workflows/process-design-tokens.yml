@@ -1,0 +1,303 @@
+name: Process Design Tokens
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'tokens/**'
+      - 'config.js'
+      - 'scripts/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'tokens/**'
+      - 'config.js'
+      - 'scripts/**'
+  workflow_dispatch:
+    inputs:
+      deploy_to_repos:
+        description: 'Deploy to iOS and Android repositories'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  build-tokens:
+    runs-on: ubuntu-latest
+    
+    outputs:
+      ios-changed: ${{ steps.check-changes.outputs.ios-changed }}
+      android-changed: ${{ steps.check-changes.outputs.android-changed }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Create tokens directory
+        run: mkdir -p tokens
+      
+      - name: Build design tokens
+        run: npm run build:tokens
+      
+      - name: Check for changes in generated files
+        id: check-changes
+        run: |
+          # Check if iOS files changed
+          if git diff --quiet HEAD~1 build/ios/ 2>/dev/null || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "ios-changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "ios-changed=true" >> $GITHUB_OUTPUT
+          fi
+          
+          # Check if Android files changed (XML or Compose)
+          android_changed=false
+          if ! git diff --quiet HEAD~1 build/android/ 2>/dev/null; then
+            android_changed=true
+          fi
+          if ! git diff --quiet HEAD~1 build/android-compose/ 2>/dev/null; then
+            android_changed=true
+          fi
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            android_changed=true
+          fi
+          echo "android-changed=${android_changed}" >> $GITHUB_OUTPUT
+      
+      - name: Upload iOS artifacts
+        if: steps.check-changes.outputs.ios-changed == 'true' || github.event.inputs.deploy_to_repos == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-tokens
+          path: build/ios/
+          retention-days: 7
+      
+      - name: Upload Android artifacts
+        if: steps.check-changes.outputs.android-changed == 'true' || github.event.inputs.deploy_to_repos == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-tokens
+          path: build/android/
+          retention-days: 7
+
+      - name: Upload Android Compose artifacts
+        if: steps.check-changes.outputs.android-changed == 'true' || github.event.inputs.deploy_to_repos == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-compose-tokens
+          path: build/android-compose/
+          retention-days: 7
+      
+      - name: Upload all build artifacts for verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: all-tokens
+          path: build/
+          retention-days: 3
+
+  deploy-to-ios:
+    needs: build-tokens
+    if: (needs.build-tokens.outputs.ios-changed == 'true' || github.event.inputs.deploy_to_repos == 'true') && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Download iOS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-tokens
+          path: ios-tokens/
+      
+      - name: Setup Git
+        run: |
+          git config --global user.name "Design Token Bot"
+          git config --global user.email "design-tokens@allegion.com"
+      
+      - name: Clone iOS repository
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git clone https://github.com/Allegion-Plc/adu-app-ios.git ios-repo
+          cd ios-repo
+          git checkout -B design-tokens-update
+      
+      - name: Copy iOS token files
+        run: |
+          # Create design tokens directory in iOS project if it doesn't exist
+          mkdir -p ios-repo/DesignTokens
+          
+          # Copy generated Swift files
+          cp ios-tokens/* ios-repo/DesignTokens/
+          
+          # List copied files for verification
+          echo "Copied iOS token files:"
+          ls -la ios-repo/DesignTokens/
+      
+      - name: Create Pull Request to iOS repository
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd ios-repo
+          
+          # Add and commit changes
+          git add .
+          
+          if git diff --staged --quiet; then
+            echo "No changes to commit for iOS"
+            exit 0
+          fi
+          
+          git commit -m "Update design tokens
+          
+          - Updated from design-token-exporter automation
+          - Generated on: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          - Commit: ${{ github.sha }}
+          
+          🤖 This is an automated update from the design token pipeline."
+          
+          git push origin design-tokens-update
+          
+          # Create pull request using GitHub CLI
+          gh pr create \
+            --title "🎨 Update Design Tokens" \
+            --body "## Design Token Update
+          
+          This PR contains automatically generated design token updates from the design-token-exporter repository.
+          
+          ### Changes
+          - Updated iOS Swift token files
+          - Generated from commit: ${{ github.sha }}
+          - Generated on: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          
+          ### Files Updated
+          $(cd DesignTokens && ls -1 *.swift | sed 's/^/- /')
+          
+          ### Review Notes
+          - These files are automatically generated - do not edit manually
+          - Verify the token values match the design specifications
+          - Test the integration with existing iOS components
+          
+          🤖 Generated by design token automation" \
+            --head design-tokens-update \
+            --base main
+
+  deploy-to-android:
+    needs: build-tokens
+    if: (needs.build-tokens.outputs.android-changed == 'true' || github.event.inputs.deploy_to_repos == 'true') && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Download Android artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: android-tokens
+          path: android-tokens/
+
+      - name: Download Android Compose artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: android-compose-tokens
+          path: android-compose-tokens/
+      
+      - name: Setup Git
+        run: |
+          git config --global user.name "Design Token Bot"
+          git config --global user.email "design-tokens@allegion.com"
+      
+      - name: Clone Android repository
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git clone https://github.com/Allegion-Plc/adu-app-android.git android-repo
+          cd android-repo
+          git checkout -B design-tokens-update
+      
+      - name: Copy Android token files
+        run: |
+          # Create design tokens directory in Android project if it doesn't exist
+          mkdir -p android-repo/app/src/main/res/values
+          
+          # Copy generated XML files
+          cp android-tokens/* android-repo/app/src/main/res/values/
+          
+          # List copied files for verification
+          echo "Copied Android token files:"
+          ls -la android-repo/app/src/main/res/values/
+
+          # Copy Android Compose token files
+          if [ -d "android-compose-tokens" ]; then
+            mkdir -p android-repo/app/src/main/java/com/allegion/designtokens
+            for entry in android-compose-tokens/*; do
+              name=$(basename "$entry")
+              rm -rf "android-repo/app/src/main/java/com/allegion/designtokens/$name"
+              cp -R "$entry" "android-repo/app/src/main/java/com/allegion/designtokens/"
+            done
+            echo "Copied Android Compose token files:"
+            find android-repo/app/src/main/java/com/allegion/designtokens -type f -name "*.kt" | head -20
+          fi
+      
+      - name: Create Pull Request to Android repository
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd android-repo
+          
+          # Add and commit changes
+          git add .
+          
+          if git diff --staged --quiet; then
+            echo "No changes to commit for Android"
+            exit 0
+          fi
+          
+          git commit -m "Update design tokens
+          
+          - Updated from design-token-exporter automation
+          - Generated on: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          - Commit: ${{ github.sha }}
+          
+          🤖 This is an automated update from the design token pipeline."
+          
+          git push origin design-tokens-update
+          
+          # Create pull request using GitHub CLI
+          gh pr create \
+            --title "🎨 Update Design Tokens" \
+            --body "## Design Token Update
+          
+          This PR contains automatically generated design token updates from the design-token-exporter repository.
+          
+          ### Changes
+          - Updated Android XML token files
+          - Updated Android Compose token files
+          - Generated from commit: ${{ github.sha }}
+          - Generated on: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          
+          ### Files Updated
+          $(cd app/src/main/res/values && ls -1 *.xml | sed 's/^/- /')
+          
+          ### Compose Files Updated
+          $(find app/src/main/java/com/allegion/designtokens -type f -name "*.kt" | sed 's/^/- /' | head -50)
+          
+          ### Review Notes
+          - These files are automatically generated - do not edit manually
+          - Verify the token values match the design specifications
+          - Test the integration with existing Android components
+          
+          🤖 Generated by design token automation" \
+            --head design-tokens-update \
+            --base main

@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+build/
+
+# Environment variables
+.env
+
+# Logs
+*.log
+
+# Test coverage
+coverage/
+
+# Temporary folders
+temp/
+
+# Editor directories and files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+._*
+Thumbs.db
+
+# Design token files (generated/downloaded)
+tokens/design-*.tokens.json
