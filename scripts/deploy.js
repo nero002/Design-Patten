@@ -7,7 +7,7 @@ const REPOS = {
   ios: {
     url: "git@github.com:nero002/try-app.git",
     targetPath: "DesignTokens/",
-    branch: "design-tokens-update",
+    branch: "updated-the-design-system",
     files: [
       "Colors.swift",
       "Spacing.swift",
@@ -20,7 +20,7 @@ const REPOS = {
   android: {
     url: "git@github.com:nero002/try-app.git",
     targetPath: "app/src/main/res/values/",
-    branch: "design-tokens-update",
+    branch: "updated-the-design-system",
     files: ["colors.xml", "dimens.xml", "typography.xml"],
     directories: [
       {

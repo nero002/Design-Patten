@@ -13,49 +13,59 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Build tokens and deploy generated outputs to target repos.
   build-and-deploy:
     runs-on: ubuntu-latest
     
     steps:
+    # Checkout the repository contents for the workflow run.
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
 
+    # Configure Node.js for the build and cache npm modules.
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '20'
         cache: 'npm'
 
+    # Install dependencies using the lockfile for reproducibility.
     - name: Install dependencies
       run: npm ci
 
+    # Generate platform token outputs from source tokens.
     - name: Build design tokens
       run: npm run build:tokens
 
+    # Log a sample of generated files for quick verification.
     - name: List generated files
       run: |
         echo "Generated files:"
         find build -type f \( -name "*.swift" -o -name "*.xml" -o -name "*.kt" \) | head -20
 
+    # Set git identity for automated commits in downstream repos.
     - name: Setup Git configuration
       run: |
         git config --global user.name "GitHub Actions Bot"
         git config --global user.email "actions@github.com"
 
+    # Validate GitHub CLI availability in the runner environment.
     - name: Setup GitHub CLI
       run: |
         gh auth status || echo "GitHub CLI not authenticated"
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+    # Deploy iOS tokens to the target repo on main branch pushes.
     - name: Deploy to iOS repository
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: node scripts/deploy.js ios
       env:
         GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
 
+    # Ensure Android outputs exist before attempting deployment.
     - name: Verify Android build artifacts
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: |
@@ -77,12 +87,14 @@ jobs:
         fi
         echo "SUCCESS: Android build artifacts found."
 
+    # Deploy Android tokens to the target repo on main branch pushes.
     - name: Deploy to Android repository  
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: node scripts/deploy.js android
       env:
         GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
 
+    # Store generated artifacts for later download or inspection.
     - name: Archive build artifacts
       uses: actions/upload-artifact@v4
       with:
@@ -93,6 +105,7 @@ jobs:
           build/android-compose/**
         retention-days: 30
 
+    # Write a markdown summary of the deployment outputs.
     - name: Create deployment summary
       if: always()
       run: |
@@ -116,5 +129,5 @@ jobs:
         fi
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Target Repositories" >> $GITHUB_STEP_SUMMARY
-        echo "- **iOS**: git@github.com:Allegion-Plc/adu-app-ios.git" >> $GITHUB_STEP_SUMMARY
+        echo "- **iOS**: git@github.com:nero002/try-app.git" >> $GITHUB_STEP_SUMMARY
         echo "- **Android**: git@github.com:nero002/try-app.git" >> $GITHUB_STEP_SUMMARY
