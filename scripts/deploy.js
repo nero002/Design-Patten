@@ -25,7 +25,8 @@ const REPOS = {
     directories: [
       {
         buildDir: "android-compose",
-        targetPath: "app/src/main/java/com/allegion/designtokens/",
+        // Target the app's theme package directory for generated Compose tokens.
+        targetPath: "app/src/main/java/com/nero/try_app/ui/theme/",
         clean: true,
       },
     ],

@@ -439,7 +439,8 @@ const groupDepth = (() => {
   return Number.isNaN(parsed) ? null : Math.max(parsed, 1);
 })();
 const groupDefinitions = collectGroupDefinitions(tokensForGroups || {}, selectedSets, groupDepth);
-const basePackage = 'com.allegion.designtokens';
+// Match the target app theme package for Compose token generation.
+const basePackage = 'com.nero.try_app.ui.theme';
 
 const composeFiles = groupDefinitions.map(group => {
   const packageSegments = group.segments.map(toPackageSegment).filter(Boolean);
