@@ -5,7 +5,7 @@ const { execSync } = require("child_process");
 // Configuration for target repositories
 const REPOS = {
   ios: {
-    url: "git@github.com:Allegion-Plc/adu-app-ios.git",
+    url: "git@github.com:nero002/try-app.git",
     targetPath: "DesignTokens/",
     branch: "design-tokens-update",
     files: [
