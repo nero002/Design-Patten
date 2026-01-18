@@ -56,6 +56,27 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
 
+    - name: Verify Android build artifacts
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: |
+        if [ ! -d "build/android" ]; then
+          echo "ERROR: build/android directory not found."
+          exit 1
+        fi
+        if ! ls build/android/*.xml >/dev/null 2>&1; then
+          echo "ERROR: No Android XML tokens found in build/android."
+          exit 1
+        fi
+        if [ ! -d "build/android-compose" ]; then
+          echo "ERROR: build/android-compose directory not found."
+          exit 1
+        fi
+        if ! find build/android-compose -type f -name "*.kt" -print -quit >/dev/null 2>&1; then
+          echo "ERROR: No Android Compose Kotlin tokens found in build/android-compose."
+          exit 1
+        fi
+        echo "SUCCESS: Android build artifacts found."
+
     - name: Deploy to Android repository  
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: node scripts/deploy.js android
@@ -96,4 +117,4 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Target Repositories" >> $GITHUB_STEP_SUMMARY
         echo "- **iOS**: git@github.com:Allegion-Plc/adu-app-ios.git" >> $GITHUB_STEP_SUMMARY
-        echo "- **Android**: git@github.com:Allegion-Plc/adu-app-android.git" >> $GITHUB_STEP_SUMMARY
+        echo "- **Android**: git@github.com:nero002/try-app.git" >> $GITHUB_STEP_SUMMARY

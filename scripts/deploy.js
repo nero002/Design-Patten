@@ -18,7 +18,7 @@ const REPOS = {
     ],
   },
   android: {
-    url: "git@github.com:Allegion-Plc/adu-app-android.git",
+    url: "git@github.com:nero002/try-app.git",
     targetPath: "app/src/main/res/values/",
     branch: "design-tokens-update",
     files: ["colors.xml", "dimens.xml", "typography.xml"],
