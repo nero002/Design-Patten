@@ -5,7 +5,7 @@ const { execSync } = require("child_process");
 // Configuration for target repositories
 const REPOS = {
   ios: {
-    url: "git@github.com:nero002/try-app.git",
+    url: "https://github.com/nero002/try-app.git",
     targetPath: "DesignTokens/",
     branch: "updated-the-design-system",
     files: [
@@ -18,7 +18,7 @@ const REPOS = {
     ],
   },
   android: {
-    url: "git@github.com:nero002/try-app.git",
+    url: "https://github.com/nero002/try-app.git",
     targetPath: "app/src/main/res/values/",
     branch: "updated-the-design-system",
     files: ["colors.xml", "dimens.xml", "typography.xml"],

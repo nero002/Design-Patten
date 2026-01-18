@@ -129,5 +129,5 @@ jobs:
         fi
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Target Repositories" >> $GITHUB_STEP_SUMMARY
-        echo "- **iOS**: git@github.com:nero002/try-app.git" >> $GITHUB_STEP_SUMMARY
-        echo "- **Android**: git@github.com:nero002/try-app.git" >> $GITHUB_STEP_SUMMARY
+        echo "- **iOS**: https://github.com/nero002/try-app.git" >> $GITHUB_STEP_SUMMARY
+        echo "- **Android**: https://github.com/nero002/try-app.git" >> $GITHUB_STEP_SUMMARY
